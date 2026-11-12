@@ -69,8 +69,17 @@ fastify.post("/v1/messages", async (request, reply) => {
   }
 
   return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      if (pendingRequests.has(requestId)) {
+        pendingRequests.delete(requestId);
+        browserCircuitBreaker.recordFailure();
+        reject(new Error("Browser worker generation timeout (DeepSeek chat took >120s)"));
+      }
+    }, 120000);
+
     pendingRequests.set(requestId, {
       resolve: async (browserResponse: string) => {
+        clearTimeout(timeout);
         completeIdempotency(requestId);
         browserCircuitBreaker.recordSuccess();
 
@@ -157,7 +166,7 @@ fastify.post("/v1/messages", async (request, reply) => {
           sendEvent("message_stop", { type: "message_stop" });
           reply.raw.write("data: [DONE]\n\n");
           reply.raw.end();
-          resolve(null);
+          resolve(reply);
         } else {
           const content: any[] = [{ type: "text", text: textContent }];
           if (toolUseBlock) content.push(toolUseBlock);
@@ -171,11 +180,11 @@ fastify.post("/v1/messages", async (request, reply) => {
             stop_reason: toolUseBlock ? "tool_use" : "end_turn",
             usage: { input_tokens: 150, output_tokens: 100 }
           };
-          reply.code(200).send(responseObj);
-          resolve(null);
+          resolve(reply.code(200).send(responseObj));
         }
       },
       reject: (err) => {
+        clearTimeout(timeout);
         browserCircuitBreaker.recordFailure();
         reject(err);
       }
@@ -186,15 +195,16 @@ fastify.post("/v1/messages", async (request, reply) => {
       requestId,
       prompt
     }));
-
-    setTimeout(() => {
-      if (pendingRequests.has(requestId)) {
-        pendingRequests.delete(requestId);
-        browserCircuitBreaker.recordFailure();
-        reply.code(504).send({ type: "error", error: { message: "Browser worker generation timeout (DeepSeek chat took >120s)", type: "api_error" } });
-        resolve(null);
+  }).catch((err: any) => {
+    browserCircuitBreaker.recordFailure();
+    const statusCode = err.message?.includes("timeout") ? 504 : 500;
+    return reply.code(statusCode).send({
+      type: "error",
+      error: {
+        message: err.message || "Browser worker error",
+        type: "api_error"
       }
-    }, 120000);
+    });
   });
 });
 

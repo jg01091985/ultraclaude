@@ -56,10 +56,10 @@ class DeepSeekWorker {
     if (!this.page) return;
     try {
       console.log("Checking authentication state on DeepSeek...");
-      await this.page.waitForTimeout(5000);
+      await this.page.waitForTimeout(4000);
 
       // If already on chat (textarea present), we're authenticated
-      const chatTextarea = await this.page.$('textarea');
+      let chatTextarea = await this.page.$('textarea, div[contenteditable="true"]');
       if (chatTextarea) {
         console.log("Browser session appears authenticated (chat textarea present).");
         return;
@@ -80,60 +80,69 @@ class DeepSeekWorker {
       // Navigate to DeepSeek root if not there
       if (!this.page.url().includes("chat.deepseek.com")) {
         await this.page.goto(CONFIG.DEEPSEEK_URL, { waitUntil: "domcontentloaded" });
-        await this.page.waitForTimeout(5000);
+        await this.page.waitForTimeout(4000);
       }
 
-      // Check again for chat textarea
-      const chatTextarea2 = await this.page.$('textarea');
-      if (chatTextarea2) {
+      chatTextarea = await this.page.$('textarea, div[contenteditable="true"]');
+      if (chatTextarea) {
         console.log("Browser session appears authenticated.");
         return;
       }
 
-      console.log("Login required. Current URL:", this.page.url());
+      console.log("Login required. Navigating to sign_in...");
+      await this.page.goto("https://chat.deepseek.com/sign_in", { waitUntil: "domcontentloaded" });
+      await this.page.waitForTimeout(4000);
 
-      // If on sign_in page, fill credentials
-      if (this.page.url().includes("sign_in")) {
-        const emailInput = await this.page.$('input[placeholder*="email" i], input[placeholder*="phone" i], input[type="text"], input[type="email"]');
-        if (emailInput) {
-          await emailInput.fill(CONFIG.CREDENTIALS.username);
-          console.log("Filled email.");
-        }
-        const passwordInput = await this.page.$('input[type="password"]');
-        if (passwordInput) {
-          await passwordInput.fill(CONFIG.CREDENTIALS.password);
-          console.log("Filled password.");
-        }
-        await this.page.waitForTimeout(1000);
+      const emailInput = await this.page.$('input[placeholder*="email" i], input[placeholder*="phone" i], input[type="text"], input[type="email"]');
+      if (emailInput) {
+        await emailInput.fill(CONFIG.CREDENTIALS.username);
+        console.log("Filled email/username.");
+      }
 
-        // Click the primary "Log in" button (div.ds-button)
-        const btns = await this.page.$$('div.ds-button, button');
-        for (const b of btns) {
-          const t = (await b.textContent())?.trim();
-          if (t === "Log in") {
-            await b.click().catch(() => {});
-            console.log("Clicked Log in.");
-            break;
-          }
-        }
-        await this.page.waitForTimeout(5000);
+      const passwordInput = await this.page.$('input[type="password"]');
+      if (passwordInput) {
+        await passwordInput.fill(CONFIG.CREDENTIALS.password);
+        console.log("Filled password.");
+      }
 
-        // Click "Send code" if verification screen appears
-        const sendCodeBtns = await this.page.$$('div.ds-button, button');
-        for (const b of sendCodeBtns) {
-          const t = (await b.textContent())?.trim();
-          if (t === "Send code") {
-            await b.click().catch(() => {});
-            console.log("Clicked Send code. Waiting for manual verification code entry...");
-            break;
-          }
+      // Check terms checkbox if present
+      const checkbox = await this.page.$('input[type="checkbox"]');
+      if (checkbox) {
+        const isChecked = await checkbox.isChecked().catch(() => false);
+        if (!isChecked) {
+          await checkbox.click().catch(() => {});
+          console.log("Checked terms agreement checkbox.");
         }
       }
 
-      // Wait for chat textarea (manual verification / captcha may be needed)
-      console.log("Waiting for authentication to complete (up to 3 minutes; solve captcha/Cloudflare challenge in browser if prompted)...");
+      await this.page.waitForTimeout(1000);
+
+      // Click Log in / Sign in button
+      const btns = await this.page.$$('div.ds-button, button');
+      for (const b of btns) {
+        const t = (await b.textContent())?.trim();
+        if (/log\s*in|sign\s*in|登录/i.test(t || '')) {
+          await b.click().catch(() => {});
+          console.log("Clicked login button:", t);
+          break;
+        }
+      }
+      await this.page.waitForTimeout(5000);
+
+      // Click "Send code" if verification screen appears
+      const sendCodeBtns = await this.page.$$('div.ds-button, button');
+      for (const b of sendCodeBtns) {
+        const t = (await b.textContent())?.trim();
+        if (t === "Send code") {
+          await b.click().catch(() => {});
+          console.log("Clicked Send code. Waiting for manual verification code entry if needed...");
+          break;
+        }
+      }
+
+      // Wait for chat textarea
+      console.log("Waiting for authentication to complete (up to 3 minutes)...");
       for (let i = 0; i < 180; i++) {
-        // Also check if "Begin" appeared again
         const btnsLoop = await this.page.$$('button, div.ds-button');
         for (const b of btnsLoop) {
           const t = (await b.textContent())?.trim();
@@ -143,7 +152,7 @@ class DeepSeekWorker {
           }
         }
 
-        const ta = await this.page.$('textarea');
+        const ta = await this.page.$('textarea, div[contenteditable="true"]');
         if (ta) {
           console.log("Authentication successful - chat ready.");
           return;
