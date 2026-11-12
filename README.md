@@ -56,3 +56,8 @@ DeepSeek Chat (https://chat.deepseek.com)
    ultraclaude --dangerously-skip-permissions
    ```
    *It automatically routes through Ultraclaude with Deep Think enabled, sets up environment routing, and runs the DeepSeek browser backend!*
+
+   **Model Routing Examples**:
+   - DeepSeek Browser + Deep Think: `ultraclaude --model deepseek --dangerously-skip-permissions` (or simply `ultraclaude`)
+   - Gemini API Routing: `ultraclaude --model gemini-3-flash --dangerously-skip-permissions`
+   - Claude Thinking Routing: `ultraclaude --model claude-sonnet-4.6 --dangerously-skip-permissions`
