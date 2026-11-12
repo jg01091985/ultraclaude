@@ -1,0 +1,22 @@
+#!/bin/bash
+# Ultraclaude Universal CLI Wrapper
+export ANTHROPIC_BASE_URL="http://127.0.0.1:4142"
+export ANTHROPIC_AUTH_TOKEN="local-bridge-token"
+unset ANTHROPIC_API_KEY
+
+# Ensure systemd user service is active
+systemctl --user start ultraclaude.service 2>/dev/null || true
+
+# Check if --model was provided
+HAS_MODEL=false
+for arg in "$@"; do
+  if [[ "$arg" == "--model" ]]; then
+    HAS_MODEL=true
+  fi
+done
+
+if [ "$HAS_MODEL" = false ]; then
+  exec claude --model deepseek-browser "$@"
+else
+  exec claude "$@"
+fi

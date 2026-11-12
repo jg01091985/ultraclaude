@@ -53,6 +53,6 @@ DeepSeek Chat (https://chat.deepseek.com)
 5. **Use Anywhere**:
    Open any terminal and run:
    ```bash
-   claude --dangerously-skip-permissions
+   ultraclaude --dangerously-skip-permissions
    ```
-   *It automatically routes through Ultraclaude with Deep Think enabled!*
+   *It automatically routes through Ultraclaude with Deep Think enabled, sets up environment routing, and runs the DeepSeek browser backend!*

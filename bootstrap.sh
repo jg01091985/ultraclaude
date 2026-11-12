@@ -29,10 +29,23 @@ npm run build
 
 echo "[4/5] Setting up systemd user service for reboot persistence..."
 mkdir -p ~/.config/systemd/user
-cp claudeep.service ~/.config/systemd/user/claudeep.service
+cp claudeep.service ~/.config/systemd/user/ultraclaude.service 2>/dev/null || cp claudeep.service ~/.config/systemd/user/claudeep.service 2>/dev/null || true
 systemctl --user daemon-reload || true
-systemctl --user enable claudeep.service || true
-systemctl --user start claudeep.service || true
+systemctl --user enable ultraclaude.service || systemctl --user enable claudeep.service || true
+systemctl --user start ultraclaude.service || systemctl --user start claudeep.service || true
+
+echo "[5/5] Installing ultraclaude global CLI wrapper and environment routing..."
+sudo cp ultraclaude /usr/local/bin/ultraclaude 2>/dev/null || cp ultraclaude ~/.local/bin/ultraclaude 2>/dev/null || true
+chmod +x /usr/local/bin/ultraclaude ~/.local/bin/ultraclaude 2>/dev/null || true
+
+# Add exports to shell rc files if not present
+for rc in ~/.bashrc ~/.zshrc; do
+  if [ -f "$rc" ]; then
+    if ! grep -q "ANTHROPIC_BASE_URL" "$rc"; then
+      echo -e "\n# Ultraclaude Routing\nexport ANTHROPIC_BASE_URL=\"http://127.0.0.1:4142\"\nexport ANTHROPIC_AUTH_TOKEN=\"local-bridge-token\"\nunset ANTHROPIC_API_KEY\n" >> "$rc"
+    fi
+  fi
+done
 
 echo "======================================================="
 echo "Bootstrap completed successfully! VOILA!"
