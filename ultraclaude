@@ -16,7 +16,7 @@ for arg in "$@"; do
 done
 
 if [ "$HAS_MODEL" = false ]; then
-  exec claude --model deepseek-browser "$@"
+  exec claude --model deepseek "$@"
 else
   exec claude "$@"
 fi

@@ -18,6 +18,7 @@ fastify.get("/v1/models", async () => {
     return {
         object: "list",
         data: [
+            { id: "deepseek", object: "model", owned_by: "deepseek" },
             { id: "deepseek-reasoner", object: "model", owned_by: "deepseek" },
             { id: "deepseek-chat", object: "model", owned_by: "deepseek" },
             { id: "deepseek-browser", object: "model", owned_by: "deepseek" },
