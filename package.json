@@ -1,0 +1,27 @@
+{
+  "name": "claudeep",
+  "version": "1.0.0",
+  "description": "Claude Code to DeepSeek browser bridge via Secretbase-compatible local/remote gateway and Playwright worker",
+  "main": "dist/bridge.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start:gateway": "node dist/gateway.js",
+    "start:worker": "node dist/worker.js",
+    "start:bridge": "node dist/bridge.js",
+    "dev": "tsx src/bridge.ts"
+  },
+  "dependencies": {
+    "fastify": "^4.26.0",
+    "ws": "^8.16.0",
+    "playwright": "^1.42.0",
+    "zod": "^3.22.4",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.24",
+    "@types/ws": "^8.5.10",
+    "tsx": "^4.7.1",
+    "typescript": "^5.3.3"
+  }
+}
