@@ -22,7 +22,13 @@ fastify.get("/v1/models", async () => {
   return {
     object: "list",
     data: [
-      { id: "deepseek-browser", object: "model", owned_by: "deepseek" }
+      { id: "deepseek-reasoner", object: "model", owned_by: "deepseek" },
+      { id: "deepseek-chat", object: "model", owned_by: "deepseek" },
+      { id: "deepseek-browser", object: "model", owned_by: "deepseek" },
+      { id: "claude-sonnet-4.6", object: "model", owned_by: "anthropic" },
+      { id: "claude-opus-4.6", object: "model", owned_by: "anthropic" },
+      { id: "gemini-3-flash", object: "model", owned_by: "google" },
+      { id: "gemini-2.5-pro", object: "model", owned_by: "google" }
     ]
   };
 });

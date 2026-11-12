@@ -6,9 +6,12 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "start": "node dist/daemon.js",
+    "start:daemon": "node dist/daemon.js",
     "start:gateway": "node dist/gateway.js",
     "start:worker": "node dist/worker.js",
     "start:bridge": "node dist/bridge.js",
+    "login": "HEADLESS=false npx tsx src/worker.ts",
     "dev": "tsx src/bridge.ts"
   },
   "dependencies": {

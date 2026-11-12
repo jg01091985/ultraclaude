@@ -1,46 +1,58 @@
-# Claudeep
+# ULTRACLAUDE
 
-Claude Code running on your local machine backed by DeepSeek browser reasoning, coordinated via Secretbase-compatible local gateway and Playwright worker.
+The pinnacle of Antiglaude and Claudeep: Universal agentic AI runtime connecting any CLI agent (Claude Code CLI, OpenCode, Codex, etc.) to DeepSeek's browser reasoning backend via a local protocol bridge, control plane gateway, and headless Playwright worker with **Always-On Deep Think (high-effort reasoning)** and **reboot persistence**.
+
+---
 
 ## Architecture
 
 ```
-Claude Code CLI
-  ↓ (Anthropic Messages API)
-Local Protocol Bridge (http://127.0.0.1:4141)
-  ↓ (HTTP / WebSocket)
-Control Plane Gateway (http://127.0.0.1:8080)
-  ↓ (WebSocket worker connection)
-Browser Worker (Playwright + Persistent Profile)
+Claude Code CLI / OpenCode / Codex
+  ↓ (Anthropic Messages API / HTTP)
+Local Protocol Bridge (http://127.0.0.1:4142)
+  ↓
+Control Plane Gateway (http://127.0.0.1:9080)
+  ↓ (WebSocket Worker Protocol)
+Headless Playwright Worker (Stealth Evasion + Deep Think)
   ↓
 DeepSeek Chat (https://chat.deepseek.com)
 ```
 
-## Setup & Running
+---
 
-1. Install dependencies:
+## Universal Setup on Any Machine ("Voila")
+
+1. **Clone the repository**:
    ```bash
-   npm install
+   git clone https://github.com/jg01091985/ultraclaude.git ultraclaude
+   cd ultraclaude
    ```
 
-2. Start the Gateway:
-   ```bash
-   npm run start:gateway
+2. **Configure Credentials**:
+   Copy `.env.example` to `.env` and enter your DeepSeek credentials:
+   ```env
+   DEEPSEEK_USERNAME=your-deepseek-email@example.com
+   DEEPSEEK_PASSWORD=your-deepseek-password
+   BRIDGE_PORT=4142
+   GATEWAY_PORT=9080
    ```
 
-3. Start the Browser Worker (launches persistent Chromium profile, logs in with `james.gonzales.1985@gmail.com`):
+3. **Run the Universal Bootstrap Script**:
    ```bash
-   npm run start:worker
+   ./bootstrap.sh
    ```
+   *This automatically installs Node dependencies, downloads Playwright Chromium & OS system libraries, builds the TypeScript project, registers a systemd user daemon service with reboot persistence, and configures global shell routing (`ANTHROPIC_BASE_URL`).*
 
-4. Start the Local Protocol Bridge:
+4. **One-Time Login / Captcha (if prompted)**:
+   If DeepSeek requires an initial login or Cloudflare check, run once in headed mode:
    ```bash
-   npm run start:bridge
+   npm run login
    ```
+   *Complete the login / captcha in the browser window once; your session cookies are permanently cached in the persistent profile.*
 
-5. Configure and run Claude Code:
+5. **Use Anywhere**:
+   Open any terminal and run:
    ```bash
-   export ANTHROPIC_BASE_URL="http://127.0.0.1:4141"
-   export ANTHROPIC_AUTH_TOKEN="local-bridge-token"
-   claude --model deepseek-browser
+   claude --dangerously-skip-permissions
    ```
+   *It automatically routes through Ultraclaude with Deep Think enabled!*

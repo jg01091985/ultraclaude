@@ -18,52 +18,139 @@ class DeepSeekWorker {
     }
 
     this.context = await chromium.launchPersistentContext(CONFIG.PROFILE_PATH, {
-      headless: false,
+      headless: CONFIG.HEADLESS,
       viewport: { width: 1280, height: 800 },
-      args: ["--start-maximized"]
+      userAgent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+      ignoreDefaultArgs: ["--enable-automation"],
+      args: [
+        "--start-maximized",
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-blink-features=AutomationControlled",
+        "--disable-infobars",
+        "--disable-dev-shm-usage"
+      ]
     });
 
     const pages = this.context.pages();
     this.page = pages.length > 0 ? pages[0] : await this.context.newPage();
 
+    // Advanced stealth evasion against bot detection in headless mode
+    await this.page.addInitScript(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => false });
+      Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+      Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+      (window as any).chrome = { runtime: {} };
+    });
+
+    // Connect gateway immediately
+    this.connectGateway();
+
     console.log(`Navigating to ${CONFIG.DEEPSEEK_URL}...`);
     await this.page.goto(CONFIG.DEEPSEEK_URL, { waitUntil: "domcontentloaded" });
 
     await this.ensureAuthenticated();
-    this.connectGateway();
   }
 
   private async ensureAuthenticated() {
     if (!this.page) return;
     try {
       console.log("Checking authentication state on DeepSeek...");
-      await this.page.waitForTimeout(4000);
+      await this.page.waitForTimeout(5000);
 
-      const loginBtn = await this.page.$('text=Log in / Sign up, button:has-text("Log in"), a:has-text("Log in")');
-      if (loginBtn) {
-        console.log("Login required. Performing automated login...");
-        await loginBtn.click().catch(() => {});
-        await this.page.waitForTimeout(2000);
+      // If already on chat (textarea present), we're authenticated
+      const chatTextarea = await this.page.$('textarea');
+      if (chatTextarea) {
+        console.log("Browser session appears authenticated (chat textarea present).");
+        return;
+      }
 
-        const emailInput = await this.page.$('input[type="email"], input[name="email"], input[placeholder*="email" i], input[placeholder*="phone" i]');
+      // Check for Cloudflare / Security check "Begin" button
+      const buttonsBefore = await this.page.$$('button, div.ds-button');
+      for (const b of buttonsBefore) {
+        const t = (await b.textContent())?.trim();
+        if (t === "Begin") {
+          console.log("Found Cloudflare security check 'Begin' button. Clicking it...");
+          await b.click().catch(() => {});
+          await this.page.waitForTimeout(5000);
+          break;
+        }
+      }
+
+      // Navigate to DeepSeek root if not there
+      if (!this.page.url().includes("chat.deepseek.com")) {
+        await this.page.goto(CONFIG.DEEPSEEK_URL, { waitUntil: "domcontentloaded" });
+        await this.page.waitForTimeout(5000);
+      }
+
+      // Check again for chat textarea
+      const chatTextarea2 = await this.page.$('textarea');
+      if (chatTextarea2) {
+        console.log("Browser session appears authenticated.");
+        return;
+      }
+
+      console.log("Login required. Current URL:", this.page.url());
+
+      // If on sign_in page, fill credentials
+      if (this.page.url().includes("sign_in")) {
+        const emailInput = await this.page.$('input[placeholder*="email" i], input[placeholder*="phone" i], input[type="text"], input[type="email"]');
         if (emailInput) {
           await emailInput.fill(CONFIG.CREDENTIALS.username);
+          console.log("Filled email.");
         }
-
-        const passwordInput = await this.page.$('input[type="password"], input[name="password"], input[placeholder*="password" i]');
+        const passwordInput = await this.page.$('input[type="password"]');
         if (passwordInput) {
           await passwordInput.fill(CONFIG.CREDENTIALS.password);
+          console.log("Filled password.");
+        }
+        await this.page.waitForTimeout(1000);
+
+        // Click the primary "Log in" button (div.ds-button)
+        const btns = await this.page.$$('div.ds-button, button');
+        for (const b of btns) {
+          const t = (await b.textContent())?.trim();
+          if (t === "Log in") {
+            await b.click().catch(() => {});
+            console.log("Clicked Log in.");
+            break;
+          }
+        }
+        await this.page.waitForTimeout(5000);
+
+        // Click "Send code" if verification screen appears
+        const sendCodeBtns = await this.page.$$('div.ds-button, button');
+        for (const b of sendCodeBtns) {
+          const t = (await b.textContent())?.trim();
+          if (t === "Send code") {
+            await b.click().catch(() => {});
+            console.log("Clicked Send code. Waiting for manual verification code entry...");
+            break;
+          }
+        }
+      }
+
+      // Wait for chat textarea (manual verification / captcha may be needed)
+      console.log("Waiting for authentication to complete (up to 3 minutes; solve captcha/Cloudflare challenge in browser if prompted)...");
+      for (let i = 0; i < 180; i++) {
+        // Also check if "Begin" appeared again
+        const btnsLoop = await this.page.$$('button, div.ds-button');
+        for (const b of btnsLoop) {
+          const t = (await b.textContent())?.trim();
+          if (t === "Begin") {
+            await b.click().catch(() => {});
+            console.log("Clicked recurring 'Begin' button.");
+          }
         }
 
-        const submitBtn = await this.page.$('button[type="submit"], button:has-text("Log in"), button:has-text("Sign in"), button:has-text("Continue")');
-        if (submitBtn) {
-          await submitBtn.click().catch(() => {});
-          console.log("Submitted login form. Waiting for authentication to complete...");
-          await this.page.waitForTimeout(6000);
+        const ta = await this.page.$('textarea');
+        if (ta) {
+          console.log("Authentication successful - chat ready.");
+          return;
         }
-      } else {
-        console.log("Browser session appears authenticated.");
+        await this.page.waitForTimeout(1000);
       }
+      console.log("WARNING: Authentication not confirmed within timeout. Continuing anyway.");
     } catch (err) {
       console.log("Auth check notice:", err);
     }
@@ -142,9 +229,25 @@ class DeepSeekWorker {
   }
 
   private async sendToChat(text: string) {
-    if (!this.page) return;
+    if (!this.context) throw new Error("Browser context not initialized");
+    if (!this.page || this.page.isClosed()) {
+      const pages = this.context.pages();
+      this.page = pages.length > 0 ? pages[0] : await this.context.newPage();
+    }
+
+    if (!this.page.url().includes("chat.deepseek.com")) {
+      await this.page.goto(CONFIG.DEEPSEEK_URL, { waitUntil: "domcontentloaded" });
+      await this.page.waitForTimeout(3000);
+    }
+
     const inputSelector = 'textarea, div[contenteditable="true"]';
-    await this.page.waitForSelector(inputSelector, { timeout: 10000 });
+    try {
+      await this.page.waitForSelector(inputSelector, { timeout: 10000 });
+    } catch {
+      await this.ensureAuthenticated();
+      await this.page.waitForSelector(inputSelector, { timeout: 15000 });
+    }
+
     await this.page.click(inputSelector);
 
     await this.page.evaluate((selector) => {
@@ -159,6 +262,22 @@ class DeepSeekWorker {
     }, inputSelector);
 
     await this.page.type(inputSelector, text, { delay: 1 });
+
+    // Always activate Deep Think / high effort reasoning mode
+    try {
+      const clickables = await this.page.$$('button, div[role="button"], span, div.ds-button');
+      for (const el of clickables) {
+        const textContent = (await el.textContent() || '').trim();
+        const ariaLabel = await el.getAttribute('aria-label') || '';
+        if (/deep\s*think|think|reasoning|思考|深度/i.test(textContent) || /deep\s*think|think|reasoning/i.test(ariaLabel)) {
+          await el.click().catch(() => {});
+          console.log("[DeepSeek Worker] Activated Deep Think (reasoning mode).");
+          break;
+        }
+      }
+    } catch (err) {
+      // ignore if not found
+    }
 
     const sendButton = await this.page.$('button[type="submit"], button:has(svg), div[role="button"]:has(svg)');
     if (sendButton) {
